@@ -1,4 +1,4 @@
-import { Component } from 'react';
+import { useEffect } from 'react';
 import Notiflix from 'notiflix';
 import { Searchbar } from './Searchbar/Searchbar';
 import { ImageGallery } from './ImageGallery/ImageGallery';
@@ -6,75 +6,70 @@ import { getPictures } from './Api/getPictures';
 import { Button } from './Button/Button';
 import { Loader } from './Loader/Loader';
 import { Modal } from './Modal/Modal';
+import { useState } from 'react';
 
-export class App extends Component {
-  state = {
-    searchValue: '',
-    photos: [],
-    page: 1,
-    isLoading: false,
-    showModal: false,
-    modalPhoto: '',
-  };
+export const App = () => {
+  const [searchValue, setSearchValue] = useState('');
+  const [photos, setPhotos] = useState([]);
+  const [page, setPage] = useState(1);
+  const [isLoading, setIsLoading] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+  const [modalPhoto, setModalPhoto] = useState('');
 
-  async componentDidUpdate(_, prevState) {
-    const { searchValue, page } = this.state;
+  useEffect(() => {
+    if (!searchValue) return;
+    setIsLoading(true);
 
-    if (prevState.searchValue !== searchValue || prevState.page !== page) {
-      this.setState({ isLoading: true });
-      await getPictures(searchValue, page)
-        .then(data => {
-          if (!data.totalHits) {
-            Notiflix.Notify.failure(`Sorry, ${searchValue} not found 😢`);
-            return;
-          }
-          this.setState(prevState => ({
-            photos: [...prevState.photos, ...data.hits],
-          }));
-        })
-        .catch(() =>
-          Notiflix.Notify.failure(
-            'Sorry! This site is temporarily unavailable due to a technical issue.'
-          )
-        )
-        .finally(() => {
-          this.setState({ isLoading: false });
+    getPictures(searchValue, page)
+      .then(data => {
+        if (!data.totalHits) {
+          Notiflix.Notify.failure(`Sorry, ${searchValue} not found 😢`);
+          return;
+        }
+
+        setPhotos(prevPhotos => {
+          return [...prevPhotos, ...data.hits];
         });
-    }
-  }
+      })
+      .catch(() =>
+        Notiflix.Notify.failure(
+          'Sorry! This site is temporarily unavailable due to a technical issue.'
+        )
+      )
+      .finally(() => {
+        setIsLoading(false);
+      });
+  }, [searchValue, page]);
 
-  onSubmit = e => {
+  const onSubmit = e => {
     e.preventDefault();
-    this.setState({ searchValue: e.target[1].value, photos: [], page: 1 });
+    setSearchValue(e.target[1].value);
+    setPhotos([]);
+    setPage(1);
   };
 
-  loadMoreClick = () => {
-    this.setState(prevState => {
-      return { page: prevState.page + 1 };
-    });
+  const loadMoreClick = () => {
+    setPage(page + 1);
   };
 
-  openModal = selectedImage => {
-    this.setState({ modalPhoto: selectedImage, showModal: true });
+  const openModal = selectedImage => {
+    setModalPhoto(selectedImage);
+    setShowModal(true);
   };
 
-  closeModal = () => {
-    this.setState({ modalPhoto: '', showModal: false });
+  const closeModal = () => {
+    setModalPhoto('');
+    setShowModal(false);
   };
-  render() {
-    return (
-      <div className="app">
-        <Searchbar onSubmit={this.onSubmit} />
-        {this.state.isLoading && <Loader />}
 
-        <ImageGallery photos={this.state.photos} openModal={this.openModal} />
-        {this.state.photos.length > 11 && (
-          <Button loadMoreClick={this.loadMoreClick} />
-        )}
-        {this.state.showModal && (
-          <Modal closeModal={this.closeModal} image={this.state.modalPhoto} />
-        )}
-      </div>
-    );
-  }
-}
+  return (
+    <div className="app">
+      <Searchbar onSubmit={onSubmit} />
+      {isLoading && <Loader />}
+
+      {searchValue && <ImageGallery photos={photos} openModal={openModal} />}
+      {photos.length !== 0 && <Button loadMoreClick={loadMoreClick} />}
+      {showModal && <Modal closeModal={closeModal} image={modalPhoto} />}
+    </div>
+  );
+};
